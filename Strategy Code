@@ -1,0 +1,277 @@
+// This Pine Script™ code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+
+// © Darkoexe
+//@version=4
+strategy("FIXED RENKO V1", overlay=true)
+
+// User inputs
+risk = input(100, "Risk $")
+renko_param = input(1.0, title="Renko Box Size (Traditional)")
+rsi_length = input(14, title="RSI Length")
+trending_rsi_length = input(14, title="Trending RSI Length")
+rsi_overbought = input(70, title="RSI Overbought Level")
+rsi_oversold = input(30, title="RSI Oversold Level")
+use_sma_filter = input(true, title="Use SMA Filter?")
+sma_length = input(50, title="SMA Length")
+use_larger_renko_filter = input(true, title="Use Larger Renko Filter?")
+larger_renko_param = input(3.0, title="Larger Renko Box Size (Traditional)")
+use_trending_rsi = input(true, title="Use Trending RSI Center Line?")
+use_breakeven_stop = input(true, title="Use Breakeven Stop Loss?")
+breakeven_brick_multiple = input(3, title="Breakeven Stop Loss Brick Multiple")
+
+use_advanced_stop = input(true, title="Use Advanced Stop Loss (Stop Loss #2)?")
+advanced_stop_profit_multiple = input(7, title="Advanced Stop Profit Brick Multiple")
+advanced_stop_loss_multiple = input(3, title="Advanced Stop Loss Brick Multiple")
+
+// Renko calculation
+// renko_ticker = renko(syminfo.tickerid, "Traditional", renko_param)
+// renko_open = security(renko_ticker, timeframe.period, open)
+// renko_high = security(renko_ticker, timeframe.period, high)
+// renko_low = security(renko_ticker, timeframe.period, low)
+// renko_close = security(renko_ticker, timeframe.period, close)
+
+// Larger Renko calculation
+// larger_renko_ticker = renko(syminfo.tickerid, "Traditional", larger_renko_param)
+// larger_renko_open = security(larger_renko_ticker, timeframe.period, open)
+// larger_renko_close = security(larger_renko_ticker, timeframe.period, close)
+// is_larger_renko_up = larger_renko_close > larger_renko_open
+// is_larger_renko_down = larger_renko_close < larger_renko_open
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+var float renko_close = na
+var float renko_open = close
+
+var endOfDay = true
+var prevRenkoGreen = false
+var prevRenkoRed = false
+
+if((hour<16 and not(hour==15 and minute==59)) and (hour>9 or (hour==9 and minute>=30)))
+    if(endOfDay)
+        renko_open:=open
+        endOfDay := false
+
+    if(prevRenkoGreen)
+        if(close>=renko_close+renko_param)
+            renko_open:=renko_close
+            renko_close:=renko_close+renko_param
+            prevRenkoGreen:=true
+            prevRenkoRed:=false
+        else if(close<=renko_close-(2*renko_param))
+            renko_close:=renko_close-(2*renko_param)
+            prevRenkoGreen:=false
+            prevRenkoRed:=true
+    else if(prevRenkoRed)
+        if(close<=renko_close-renko_param)
+            renko_open:=renko_close
+            renko_close:=renko_close-renko_param
+            prevRenkoGreen:=false
+            prevRenkoRed:=true
+        else if(close>=renko_close+(2*renko_param))
+            renko_close:=renko_close+(2*renko_param)
+            prevRenkoGreen:=true
+            prevRenkoRed:=false
+
+    else if(close>=renko_open+renko_param)
+        renko_close:=renko_open+renko_param
+        prevRenkoGreen:=true
+        prevRenkoRed:=false
+    else if(close<=renko_open-renko_param)
+        renko_close:=renko_open-renko_param
+        prevRenkoGreen:=false
+        prevRenkoRed:=true
+
+else
+    endOfDay := true
+    prevRenkoGreen:=false
+    prevRenkoRed:=false
+    renko_close:=na
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+var float larger_renko_close = na
+var float larger_renko_open = close
+
+var larger_endOfDay = true
+var larger_prevRenkoGreen = false
+var larger_prevRenkoRed = false
+
+
+if((hour<16 and not(hour==15 and minute==59)) and (hour>9 or (hour==9 and minute>=30)))
+    if(larger_endOfDay)
+        larger_renko_open:=open
+        larger_endOfDay:=false
+
+    else if(larger_prevRenkoGreen)
+        if(close>=larger_renko_close+larger_renko_param)
+            larger_renko_open:=larger_renko_close
+            larger_renko_close:=larger_renko_close+larger_renko_param
+            larger_prevRenkoGreen:=true
+            larger_prevRenkoRed:=false
+        else if(close<=larger_renko_close-(2*larger_renko_param))
+            larger_renko_close:=larger_renko_close-(2*larger_renko_param)
+            larger_prevRenkoGreen:=false
+            larger_prevRenkoRed:=true
+    else if(larger_prevRenkoRed)
+        if(close<=larger_renko_close-larger_renko_param)
+            larger_renko_open:=larger_renko_close
+            larger_renko_close:=larger_renko_close-larger_renko_param
+            larger_prevRenkoGreen:=false
+            larger_prevRenkoRed:=true
+        else if(close>=larger_renko_close+(2*larger_renko_param))
+            larger_renko_close:=larger_renko_close+(2*larger_renko_param)
+            larger_prevRenkoGreen:=true
+            larger_prevRenkoRed:=false
+
+    if(close>=larger_renko_open+larger_renko_param)
+        larger_renko_close:=larger_renko_open+larger_renko_param
+        larger_prevRenkoGreen:=true
+        larger_prevRenkoRed:=false
+    else if(close<=larger_renko_open-larger_renko_param)
+        larger_renko_close:=larger_renko_open-larger_renko_param
+        larger_prevRenkoGreen:=false
+        larger_prevRenkoRed:=true
+
+else
+    larger_endOfDay := true
+    larger_prevRenkoGreen:=false
+    larger_prevRenkoRed:=false
+    renko_close:=na
+
+is_larger_renko_up = larger_renko_close > larger_renko_open
+is_larger_renko_down = larger_renko_close < larger_renko_open
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// RSI calculation
+rsi = rsi(close, rsi_length)
+
+// Trending RSI calculation
+trending_rsi = rsi(close, trending_rsi_length)
+
+// SMA calculation
+sma = sma(close, sma_length)
+
+// Color for Renko bars
+is_up_brick = renko_close > renko_open
+is_down_brick = renko_close < renko_open
+
+// Entry and exit conditions with RSI, SMA, and Larger Renko filters
+
+long_entry = is_up_brick and not is_up_brick[1] and rsi < rsi_overbought and
+             (not use_sma_filter or renko_close > sma) and
+             (not use_larger_renko_filter or is_larger_renko_up) and
+             (not use_trending_rsi or trending_rsi > 50)
+
+long_exit = is_down_brick and not is_down_brick[1]
+
+short_entry = is_down_brick and not is_down_brick[1] and rsi > rsi_oversold and
+              (not use_sma_filter or renko_close < sma) and
+              (not use_larger_renko_filter or is_larger_renko_down) and
+              (not use_trending_rsi or trending_rsi < 50)
+
+short_exit = is_up_brick and not is_up_brick[1]
+
+
+// Execute trades
+var longTrade = false
+var shortTrade = false
+
+
+buy = false
+sell = false
+exit = false
+
+shareRisk = floor(risk / close) > 0 ? floor(risk / close) : 1
+
+// Calculate the box size for the current Renko style
+box_size = renko_param
+
+// Long trade management
+if (barstate.isnew and long_entry)
+    strategy.entry("Long", strategy.long)
+    alert(message='{"ticker": "' + syminfo.ticker + '","action": "buy","orderType": "market","quantityType": "fixed_quantity","quantity": ' + tostring(shareRisk) + ',"timeInForce": "gtc","extendedHours": false}', freq = alert.freq_all)
+    longTrade := true
+    shortTrade := false
+    buy := true
+    exit := false // ensure exit is false when entering
+
+// Short trade management
+else if (barstate.isnew and short_entry)
+    strategy.entry("Short", strategy.short)
+    alert(message='{"ticker": "' + syminfo.ticker + '","action": "sell","orderType": "market","quantityType": "fixed_quantity","quantity": ' + tostring(shareRisk) + ',"timeInForce": "gtc","extendedHours": false}', freq = alert.freq_all)
+    shortTrade := true
+    longTrade := false
+    sell := true
+    exit := false // ensure exit is false when entering
+
+else if (barstate.isnew and longTrade and use_breakeven_stop and (renko_close - strategy.position_avg_price) > (breakeven_brick_multiple * box_size))
+    strategy.exit("Breakeven Long", from_entry="Long", stop=strategy.position_avg_price)
+    alert(message='{"ticker": "' + syminfo.ticker + '", "action": "exit"}', freq = alert.freq_all)
+    longTrade := false
+    exit := true
+
+else if (barstate.isnew and longTrade and use_advanced_stop and (renko_close - strategy.position_avg_price) > (advanced_stop_profit_multiple * box_size))
+    strategy.exit("Advanced Long", from_entry="Long", stop=strategy.position_avg_price + (advanced_stop_loss_multiple * box_size))
+    alert(message='{"ticker": "' + syminfo.ticker + '", "action": "exit"}', freq = alert.freq_all)
+    longTrade := false
+    exit := true
+
+else if (barstate.isnew and longTrade and long_exit)
+    strategy.close("Long")
+    alert(message='{"ticker": "' + syminfo.ticker + '", "action": "exit"}', freq = alert.freq_all)
+    longTrade := false
+    exit := true // set exit to true when exiting
+
+else if (barstate.isnew and shortTrade and use_breakeven_stop and (strategy.position_avg_price - renko_close) > (breakeven_brick_multiple * box_size))
+    strategy.exit("Breakeven Short", from_entry="Short", stop=strategy.position_avg_price)
+    alert(message='{"ticker": "' + syminfo.ticker + '", "action": "exit"}', freq = alert.freq_all)
+    shortTrade := false
+    exit := true
+
+else if (barstate.isnew and shortTrade and use_advanced_stop and (strategy.position_avg_price - renko_close) > (advanced_stop_profit_multiple * box_size))
+    strategy.exit("Advanced Short", from_entry="Short", stop=strategy.position_avg_price - (advanced_stop_loss_multiple * box_size))
+    alert(message='{"ticker": "' + syminfo.ticker + '", "action": "exit"}', freq = alert.freq_all)
+    shortTrade := false
+    exit := true
+
+else if (barstate.isnew and shortTrade and short_exit)
+    strategy.close("Short")
+    alert(message='{"ticker": "' + syminfo.ticker + '", "action": "exit"}', freq = alert.freq_all)
+    shortTrade := false
+    exit := true // set exit to true when exiting
+
+
+// Plot Renko bars
+
+plotshape(series=buy ? close : na, location=location.belowbar, color=color.new(color.green, 50), style=shape.labelup, size=size.small, text='Buy', textcolor=color.new(color.white, 0))
+plotshape(series=sell ? open : na, location=location.abovebar, color=color.new(color.green, 50), style=shape.labeldown, size=size.small, text='Sell', textcolor=color.new(color.white, 0))
+plotshape(series=exit ? close : na, location=location.absolute, color=color.new(color.orange, 50), style=shape.labelup, size=size.small, text='Exit', textcolor=color.new(color.white, 0))
+
+bar_color = is_up_brick ? color.green : color.red
+
+renko_high=renko_close>=renko_open?renko_close : renko_open
+renko_low=renko_close<=renko_open?renko_close : renko_open
+
+plotcandle(renko_open, renko_high, renko_low, renko_close, color=bar_color)
+
+// Plot RSI
+plot(rsi, color=color.blue, title="RSI")
+
+hline(rsi_overbought, "Overbought", color=color.red)
+hline(rsi_oversold, "Oversold", color=color.green)
+
+// Plot Trending RSI
+plot(trending_rsi, color=color.orange, title="Trending RSI")
+
+hline(50, "Trending RSI Center Line", color=color.gray)
+
+// Plot SMA
+plot(sma, title="SMA", color=color.purple, linewidth=2)
+
+showTicker = input(false, "Display Ticker")
+var label label1 = na
+
+if (showTicker)
+    label.delete(label1)
+    label1 := label.new(x=bar_index, y=high, text=syminfo.ticker, style=label.style_label_down, color=color.blue, textcolor=color.white)
