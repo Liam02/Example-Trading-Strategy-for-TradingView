@@ -1,0 +1,1 @@
+# Example-Trading-Strategy-for-TradingView
